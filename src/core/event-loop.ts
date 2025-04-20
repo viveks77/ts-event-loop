@@ -1,4 +1,4 @@
-import { nextTickQueue, microTaskQueue, intervalQueue, timeoutQueue } from "./queues";
+import { nextTickQueue, microTaskQueue, intervalQueue, timeoutQueue, ioQueue } from "./queues";
 import { Task } from "./task";
 
 export class EventLoop {
@@ -76,6 +76,18 @@ export class EventLoop {
     intervalsToRun.forEach((task) => intervalQueue.enqueue(task));
   }
 
+  public runIoQueue(){
+    while(!ioQueue.isEmpty()){
+      try{
+        let task = ioQueue.dequeue();
+        console.log("[EventLoop - Interval] Executing io task");
+        task?.callback();
+      }catch(error){
+        console.error("[EventLoop] Error executing file read");
+      }
+    }
+  }
+
   public runOnce(){
     this.iterationCount++;
     // console.log(`[EventLoop] Iteration ${this.iterationCount}`);
@@ -90,6 +102,7 @@ export class EventLoop {
       break;
     }
     this.runScheulderQueue();
+    this.runIoQueue();
   }
 
   public run() {

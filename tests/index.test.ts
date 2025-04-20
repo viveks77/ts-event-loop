@@ -1,7 +1,8 @@
 import { EventLoop } from "../src/core/event-loop";
 import { intervalQueue, microTaskQueue, nextTickQueue, timeoutQueue } from "../src/core/queues";
-import { scheduleInterval, scheduleTimeout } from "../src/core/scheduler";
+import { readFile, scheduleInterval, scheduleTimeout } from "../src/core/scheduler";
 import { createTask } from "../src/helpers";
+import fs from 'fs';
 
 describe("Event Loop", () => {
 
@@ -107,6 +108,40 @@ describe("Event Loop", () => {
       errorSpy.mockRestore();
       done();
     }, 100);
+
+    eventLoop.run();
+  });
+
+  test("should handle io queue", (done) => {
+    let fileName = "demo.txt";
+    let result = "";
+    let textToWrite = "[EventLoop] ioTask";
+
+    fs.writeFile(fileName, textToWrite, (err) => {
+      if (err) {
+        done(err);
+        return;
+      }
+
+      readFile(fileName, (data, error) => {
+        if(error) {
+          done(error);
+          return;
+        }
+
+        result = data;
+        
+        fs.unlink(fileName, (err) => {
+          if (err) {
+            done(err);
+            return;
+          }
+
+          expect(result).toEqual(textToWrite);
+          done();
+        });
+      });
+    });
 
     eventLoop.run();
   });

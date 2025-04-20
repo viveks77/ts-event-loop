@@ -1,15 +1,7 @@
 import { EventLoop } from "../src/core/event-loop";
 import { intervalQueue, microTaskQueue, nextTickQueue, timeoutQueue } from "../src/core/queues";
 import { scheduleInterval, scheduleTimeout } from "../src/core/scheduler";
-import { Task } from "../src/core/task";
-
-let taskId = 0
-
-const createTask = (type: Task["type"], callback: () => void): Task => ({
-  id: taskId++,
-  callback,
-  type
-})
+import { createTask } from "../src/helpers";
 
 describe("Event Loop", () => {
 

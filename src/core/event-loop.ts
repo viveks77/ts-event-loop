@@ -11,71 +11,102 @@ export class EventLoop {
   }
 
   public runNextTickQueue(){
-    console.log(`[EventLoop] Processing nextTick queue (size: ${nextTickQueue.length})`);
     while(!nextTickQueue.isEmpty()){
       const task = nextTickQueue.dequeue();
       try{
-        console.log(`[EventLoop] Executing nextTick task ${task?.id}`);
+        console.log("[EventLoop - NextTick] Executing nextTick task");
         task?.callback();        
       }catch(error){
-        console.error("[EventLoop] Error in processing nextTick Queue:", error);
+        console.error("[EventLoop - NextTick] Error in nextTick:", error);
       }
     }
   }
 
   public runMicroTaskQueue(){
-    console.log(`[EventLoop] Processing microTask queue (size: ${microTaskQueue.length})`);
     while(!microTaskQueue.isEmpty()){
       const task = microTaskQueue.dequeue();
       try{
-        console.log(`[EventLoop] Executing microTask task ${task?.id}`);
+        console.log("[EventLoop - MicroTask] Executing microTask task");
         task?.callback();
       }catch(error){
-        console.error("[EventLoop] Error in processing microTask Queue:", error);
+        console.error("[EventLoop - MicroTask] Error in microTask:", error);
       }
     }
+  }
+
+  public runScheulderQueue(){
+    const now = Date.now();
+    let timeoutsToRun: Task[] = [];
+
+    while(!timeoutQueue.isEmpty() && timeoutQueue.peek()?.timeStamp! <= now){
+      const task = timeoutQueue.dequeue();
+      if(task){
+        timeoutsToRun.push(task);
+      }
+    }
+
+    timeoutsToRun.forEach((task) => {
+      try{
+        console.log("[EventLoop - TimeOut] Executing timeout task");
+        task?.callback();
+      }catch(error){
+        console.error("[EventLoop] Error in timeout:", error);
+      }
+    });
+
+    let intervalsToRun: Task[] = [];
+    const length = intervalQueue.length;
+    for(let i = 0; i < length; i ++){
+      const task = intervalQueue.dequeue();
+      if(!task) continue;
+
+      if(task.timeStamp! <= now){
+        try{
+          console.log("[EventLoop - Interval] Executing interval task");
+          task.callback();
+        }catch(error){
+          console.error("[EventLoop] Error in interval:", error);
+        }
+        task.timeStamp = now + (task.interval || 0 )
+      }
+
+      intervalsToRun.push(task);
+    }
+
+    intervalsToRun.forEach((task) => intervalQueue.enqueue(task));
   }
 
   public runOnce(){
     this.iterationCount++;
-    console.log(`[EventLoop] Starting iteration ${this.iterationCount}`);
+    // console.log(`[EventLoop] Iteration ${this.iterationCount}`);
 
     while(true){
-      console.log('[EventLoop] Running nextTick phase');
       this.runNextTickQueue();
+      if(!nextTickQueue.isEmpty()) continue;
 
-      if(!nextTickQueue.isEmpty()) {
-        console.log('[EventLoop] New tasks added to nextTick queue, continuing...');
-        continue;
-      }
-
-      console.log('[EventLoop] Running microTask phase');
       this.runMicroTaskQueue();
-
-      if(!nextTickQueue.isEmpty()) {
-        console.log('[EventLoop] New tasks added to nextTick queue, continuing...');
-        continue;
-      }
-
-      console.log('[EventLoop] Iteration completed');
+      if(!nextTickQueue.isEmpty()) continue;
+      
       break;
     }
+    this.runScheulderQueue();
   }
 
   public run() {
-    console.log('[EventLoop] Initializing event loop');
-    console.log('[EventLoop] Starting main loop');
-
+    console.log('[EventLoop] Starting');
     const loop = () => {
+
+      // if(nextTickQueue.isEmpty() && microTaskQueue.isEmpty() && timeoutQueue.isEmpty()){
+      //   this.stop();
+      // }
+
       if(!this.shouldContinue) {
-        console.log('[EventLoop] Main loop stopped');
+        console.log('[EventLoop] Stopped');
         return;
       }
       this.runOnce();
-
       setImmediate(loop);
     }
-
     loop();
   }
 }

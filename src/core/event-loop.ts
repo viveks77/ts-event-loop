@@ -1,4 +1,4 @@
-import { nextTickQueue, microTaskQueue, intervalQueue, timeoutQueue, ioQueue } from "./queues";
+import { nextTickQueue, microTaskQueue, intervalQueue, timeoutQueue, ioQueue, immediateQueue } from "./queues";
 import { Task } from "./task";
 
 export class EventLoop {
@@ -88,6 +88,18 @@ export class EventLoop {
     }
   }
 
+  public runImmediateQueue(){
+    while(!immediateQueue.isEmpty()){
+      try{
+        const task = immediateQueue.dequeue();
+        console.log("[EventLoop - Immediate ] Executing immediate task");
+        task?.callback();
+      }catch(error){
+        console.error("[EventLoop] Error executing immediate queue");
+      }
+    }
+  }
+
   public runOnce(){
     this.iterationCount++;
     // console.log(`[EventLoop] Iteration ${this.iterationCount}`);
@@ -103,6 +115,7 @@ export class EventLoop {
     }
     this.runScheulderQueue();
     this.runIoQueue();
+    this.runImmediateQueue();
   }
 
   public run() {

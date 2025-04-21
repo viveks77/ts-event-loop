@@ -1,14 +1,14 @@
 import { createTask } from "../helpers";
-import { intervalQueue, ioQueue, timeoutQueue } from "./queues";
+import { immediateQueue, intervalQueue, ioQueue, timeoutQueue } from "./queues";
 import { Task } from "./task";
 import fs from 'fs';
 
 
-let timeoutId = 0;
+let taskId = 0;
 
 export function scheduleTimeout(callback: () => void, delayInSeconds: number){
   const task: Task = {
-    id: timeoutId++,
+    id: taskId++,
     callback,
     type: "timeout",
     timeStamp: Date.now() + delayInSeconds
@@ -18,7 +18,7 @@ export function scheduleTimeout(callback: () => void, delayInSeconds: number){
 
 export function scheduleInterval(callback: () => void, intervalInSeconds: number){
   const task: Task = {
-    id: timeoutId++,
+    id: taskId++,
     callback,
     type: "interval",
     interval: intervalInSeconds,
@@ -37,4 +37,13 @@ export function readFile(filePath: string, callback: (data: string, err?: Error)
     const task = createTask("io", () => callback(data, undefined));
     ioQueue.enqueue(task);
   })
+}
+
+export function scheduleImmediate(callback: () => void) {
+  const task: Task = {
+    id: taskId++,
+    callback,
+    type: "immediate",
+  }
+  immediateQueue.enqueue(task);
 }

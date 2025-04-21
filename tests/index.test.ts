@@ -1,6 +1,6 @@
 import { EventLoop } from "../src/core/event-loop";
-import { intervalQueue, microTaskQueue, nextTickQueue, timeoutQueue } from "../src/core/queues";
-import { readFile, scheduleInterval, scheduleTimeout } from "../src/core/scheduler";
+import { immediateQueue, intervalQueue, microTaskQueue, nextTickQueue, timeoutQueue } from "../src/core/queues";
+import { readFile, scheduleImmediate, scheduleInterval, scheduleTimeout } from "../src/core/scheduler";
 import { createTask } from "../src/helpers";
 import fs from 'fs';
 
@@ -145,5 +145,16 @@ describe("Event Loop", () => {
 
     eventLoop.run();
   });
+
+  test("should hanlde immediate queue", () => {
+    scheduleImmediate(() => {
+      console.log('[immediatetask] executed');
+      results.push("immediateTask");
+    });
+
+    eventLoop.run();
+    expect(results).toEqual(["immediateTask"])
+    
+  })
 
 })

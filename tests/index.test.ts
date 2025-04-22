@@ -1,6 +1,7 @@
+import { clearTimeout } from "timers";
 import { EventLoop } from "../src/core/event-loop";
 import { immediateQueue, intervalQueue, microTaskQueue, nextTickQueue, timeoutQueue } from "../src/core/queues";
-import { readFile, scheduleImmediate, scheduleInterval, scheduleTimeout } from "../src/core/scheduler";
+import { readFile, scheduleClearInterval, scheduleImmediate, scheduleInterval, scheduleTimeout } from "../src/core/scheduler";
 import { createTask } from "../src/helpers";
 import fs from 'fs';
 
@@ -8,6 +9,7 @@ describe("Event Loop", () => {
 
   let results: string[];
   let eventLoop: EventLoop;
+  let timeoutId: NodeJS.Timeout | null = null;
 
   beforeEach(() => {
     nextTickQueue.clear();
@@ -20,6 +22,10 @@ describe("Event Loop", () => {
   });
 
   afterEach(() => {
+    results = [];
+    if(timeoutId){
+      clearTimeout(timeoutId);
+    }
     eventLoop.stop();
   })
 
@@ -89,7 +95,7 @@ describe("Event Loop", () => {
     nextTickQueue.enqueue(nextTickTask);
 
     eventLoop.run();
-    setTimeout(() => {
+    timeoutId = setTimeout(() => {
       expect(results).toEqual(["nexttick", "microtask", "timeout"]);
     }, 1001).unref();
   });
@@ -155,6 +161,29 @@ describe("Event Loop", () => {
     eventLoop.run();
     expect(results).toEqual(["immediateTask"])
     
+  })
+
+  test("should clear scheduled interval", (done) => {
+    // let i = 0;
+    // results = [];
+    const id = scheduleInterval(() => {
+      console.log('[intervaltask] exection');
+      results.push(`interval-task`);
+    }, 1000);
+
+    scheduleTimeout(() => {
+      scheduleClearInterval(id);
+
+    }, 2001)
+
+    scheduleTimeout(() => {
+      console.log('delay for 2000ms');
+      expect(results.length).toEqual(2);
+      done();
+    }, 3001)
+    
+    eventLoop.run();
+
   })
 
 })

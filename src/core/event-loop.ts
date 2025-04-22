@@ -1,4 +1,5 @@
-import { nextTickQueue, microTaskQueue, intervalQueue, timeoutQueue, ioQueue, immediateQueue } from "./queues";
+import { nextTickQueue, microTaskQueue, intervalQueue, timeoutQueue, ioQueue, immediateQueue, closeQueue } from "./queues";
+import { activeIntervals, activeTimeouts } from "./scheduler";
 import { Task } from "./task";
 
 export class EventLoop {
@@ -10,7 +11,7 @@ export class EventLoop {
     this.shouldContinue = false;
   }
 
-  public runNextTickQueue(){
+  private runNextTickQueue(){
     while(!nextTickQueue.isEmpty()){
       const task = nextTickQueue.dequeue();
       try{
@@ -22,7 +23,7 @@ export class EventLoop {
     }
   }
 
-  public runMicroTaskQueue(){
+  private runMicroTaskQueue(){
     while(!microTaskQueue.isEmpty()){
       const task = microTaskQueue.dequeue();
       try{
@@ -34,7 +35,7 @@ export class EventLoop {
     }
   }
 
-  public runScheulderQueue(){
+  private runScheulderQueue(){
     const now = Date.now();
     let timeoutsToRun: Task[] = [];
 
@@ -48,6 +49,10 @@ export class EventLoop {
     timeoutsToRun.forEach((task) => {
       try{
         console.log("[EventLoop - TimeOut] Executing timeout task");
+
+        if(activeTimeouts.has(task.id)){
+          activeTimeouts.delete(task.id);
+        }
         task?.callback();
       }catch(error){
         console.error("[EventLoop] Error in timeout:", error);
@@ -60,7 +65,7 @@ export class EventLoop {
       const task = intervalQueue.dequeue();
       if(!task) continue;
 
-      if(task.timeStamp! <= now){
+      if(task.timeStamp! <= now && activeIntervals.has(task.id)){
         try{
           console.log("[EventLoop - Interval] Executing interval task");
           task.callback();
@@ -70,13 +75,19 @@ export class EventLoop {
         task.timeStamp = now + (task.interval || 0 )
       }
 
-      intervalsToRun.push(task);
+      if(activeIntervals.has(task.id)){
+        intervalsToRun.push(task);
+      }
     }
 
-    intervalsToRun.forEach((task) => intervalQueue.enqueue(task));
+    intervalsToRun.forEach((task) => {
+      if(activeIntervals.has(task.id)){
+        intervalQueue.enqueue(task)
+      }
+    });
   }
 
-  public runIoQueue(){
+  private runIoQueue(){
     while(!ioQueue.isEmpty()){
       try{
         let task = ioQueue.dequeue();
@@ -88,7 +99,7 @@ export class EventLoop {
     }
   }
 
-  public runImmediateQueue(){
+  private runImmediateQueue(){
     while(!immediateQueue.isEmpty()){
       try{
         const task = immediateQueue.dequeue();
@@ -100,9 +111,20 @@ export class EventLoop {
     }
   }
 
+  private runCloseCallbacksPhase() {
+    while (!closeQueue.isEmpty()) {
+      const task = closeQueue.dequeue();
+      try {
+        console.log("[EventLoop - closeCallback ] Executing closeCallback task");
+        task?.callback();
+      } catch (err) {
+        console.error(`Error in close callback:`, err);
+      }
+    }
+  }
+
   public runOnce(){
     this.iterationCount++;
-    // console.log(`[EventLoop] Iteration ${this.iterationCount}`);
 
     while(true){
       this.runNextTickQueue();
@@ -116,6 +138,7 @@ export class EventLoop {
     this.runScheulderQueue();
     this.runIoQueue();
     this.runImmediateQueue();
+    this.runCloseCallbacksPhase();
   }
 
   public run() {
